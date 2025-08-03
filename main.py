@@ -1,45 +1,44 @@
-import os
 import logging
-from aiogram import Bot, Dispatcher, types
-from aiogram.utils import executor
+import os
 import openai
+from aiogram import Bot, Dispatcher, executor, types
+from aiogram.types import Message
 
+# Настройки логирования
+logging.basicConfig(level=logging.INFO)
+
+# Токены и ключи
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-logging.basicConfig(level=logging.INFO)
-
+# Инициализация бота и OpenAI
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(bot)
-
 openai.api_key = OPENAI_API_KEY
 
-@dp.message_handler(commands=['start'])
-async def start_handler(message: types.Message):
-    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    keyboard.add(types.KeyboardButton("✍️ Сгенерировать идею"))
-    await message.answer("Привет! Я CREATORIUM — AI-креативщик. Нажми кнопку ниже, чтобы получить идею.", reply_markup=keyboard)
+# Обработка команды /start
+@dp.message_handler(commands=["start"])
+async def start_handler(message: Message):
+    await message.answer("Привет! Я AI-бот. Напиши мне что-нибудь, и я отвечу.")
 
-@dp.message_handler(lambda message: message.text == "✍️ Сгенерировать идею")
-async def generate_handler(message: types.Message):
-    await message.answer("Генерирую идею...")
-
-    prompt = "Придумай идею поста для Instagram на тему бизнеса. Дай заголовок и короткий текст."
-
+# Обработка всех остальных сообщений
+@dp.message_handler()
+async def handle_message(message: Message):
     try:
+        user_input = message.text
+
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=300,
-            temperature=0.7
+            messages=[{"role": "user", "content": user_input}]
         )
-        text = response.choices[0].message.content
-        await message.answer(f"Вот идея:
 
-{text}")
+        reply = response.choices[0].message["content"]
+        await message.answer(reply)
+
     except Exception as e:
-        await message.answer("Произошла ошибка при генерации. Попробуй позже.")
-        logging.exception("OpenAI error")
+        await message.answer("Произошла ошибка. Попробуй позже.")
+        logging.exception(e)
 
+# Запуск
 if __name__ == "__main__":
-    executor.start_polling(dp)
+    executor.start_polling(dp, skip_updates=True)
